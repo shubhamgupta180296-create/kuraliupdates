@@ -1,0 +1,1 @@
+import {json} from "../_utils.js";export async function onRequestGet({env}){const {results}=await env.DB.prepare("SELECT * FROM wards ORDER BY ward_number").all();return json(results)}
