@@ -1,0 +1,19 @@
+const $=s=>document.querySelector(s);
+async function api(path,opt={}){const r=await fetch(path,opt);const d=await r.json().catch(()=>({error:"Server error"}));if(!r.ok)throw Error(d.error||"Request failed");return d}
+const fd=f=>Object.fromEntries(new FormData(f).entries());
+let products=[];
+async function load(){
+ try{products=await api("/api/products");render()}catch(e){$("#products").innerHTML='<p class="muted">No approved products are available yet.</p>'}
+ try{let w=await api("/api/wards");$("#ward").innerHTML='<option value="">Select ward</option>'+w.map(x=>`<option value="${x.id}">Ward ${x.ward_number}${x.mc_name?" — "+x.mc_name:""}</option>`).join("")}catch(e){}
+ me();
+}
+function render(){const q=$("#search").value.toLowerCase(),c=$("#category").value;const x=products.filter(p=>(!c||p.category===c)&&(`${p.name} ${p.seller}`.toLowerCase().includes(q)));$("#products").innerHTML=x.map(p=>`<article class="product"><div class="pic">${p.category==="Food"?"🍱":p.category==="Fashion"?"👕":p.category==="Home"?"🏠":p.category==="Services"?"🛠️":"🛍️"}</div><div class="body"><h3>${p.name}</h3><div class="muted">${p.seller}</div><b>₹${(p.price_paise/100).toLocaleString("en-IN")}</b><div class="muted">Stock: ${p.stock}</div></div></article>`).join("")||'<p class="muted">No products found.</p>'}
+$("#search").addEventListener("input",render);$("#category").addEventListener("change",render);
+$("#sellerForm").addEventListener("submit",async e=>{e.preventDefault();try{let d=await api("/api/sellers",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(fd(e.target))});$("#sellerMsg").textContent=`✓ Submitted. Seller application #${d.id} is pending approval.`;e.target.reset()}catch(x){$("#sellerMsg").textContent="✕ "+x.message}});
+$("#complaintForm").addEventListener("submit",async e=>{e.preventDefault();try{let d=await api("/api/complaints",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(fd(e.target))});$("#complaintMsg").textContent=`✓ Submitted. Complaint number: ${d.complaint_no}`;e.target.reset()}catch(x){$("#complaintMsg").textContent="✕ "+x.message}});
+$("#trackBtn").onclick=async()=>{try{let d=await api("/api/complaints?complaint_no="+encodeURIComponent($("#complaintNo").value.trim()));$("#trackResult").innerHTML=`<div class="result"><b>${d.complaint_no}</b><p>${d.issue_type} • Ward ${d.ward_number}</p><p>Status: <span class="status">${d.status}</span></p><p>${d.details}</p>${d.mc_name?`<p>MC: ${d.mc_name}</p>`:""}<hr>${d.updates.map(x=>`<p><b>${x.status}</b> — ${x.note||""}</p>`).join("")}</div>`}catch(e){$("#trackResult").innerHTML=`<div class="result">✕ ${e.message}</div>`}};
+let mode="login";document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{mode=b.dataset.tab;document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("active"));b.classList.add("active");$("#authName").hidden=mode==="login";$("#authName").required=mode==="register";$("#authBtn").textContent=mode==="login"?"Login":"Create account"});
+$("#authForm").onsubmit=async e=>{e.preventDefault();try{const endpoint=mode==="login"?"/auth/login":"/auth/register";let d=await api(endpoint,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(fd(e.target))});$("#authMsg").textContent="✓ Logged in as "+d.user.name;e.target.reset();me()}catch(x){$("#authMsg").textContent="✕ "+x.message}};
+async function me(){try{let d=await api("/auth/me");if(!d.user)return;$("#meBox").innerHTML=`<div class="account-box"><b>${d.user.name}</b><div>${d.user.email} • ${d.user.role}</div><button id="logout" class="btn">Logout</button></div>`;$("#logout").onclick=async()=>{await api("/auth/logout",{method:"POST"});location.reload()}}catch(e){}}
+$("#menu").onclick=()=>{document.querySelector("nav").style.display=document.querySelector("nav").style.display==="flex"?"none":"flex"};
+load();
